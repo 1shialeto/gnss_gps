@@ -1,4 +1,4 @@
-import math
+# import math
 import csv
 
 GPS_NAV_MESSAGE_FILE_START_BYTE = 3
@@ -92,7 +92,7 @@ class GpsNavigationMessageFile:
             funny = funny.replace(char, "e")
         try:
             return float(funny.strip())
-        except:
+        except ValueError:
             return 0
 
     @staticmethod

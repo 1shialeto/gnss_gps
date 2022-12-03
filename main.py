@@ -1,6 +1,6 @@
 from rinex_processor import GpsNavigationMessageFile
 
-path = 'nsk10160.22n'
+path = 'rinex_files/nsk10160.22n'
 
 nsk1 = GpsNavigationMessageFile(path)
 
