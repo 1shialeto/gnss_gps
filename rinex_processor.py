@@ -90,7 +90,7 @@ class GpsObservation:
                     self.Codes_on_L2_channel, self.GPS_Week, self.L2_P, self.SV_accuracy, self.SV_health,
                     self.TGD, self.IODS, self.t_tm, self.Fit_interval]
         return out_list
-    """
+"""
     def calculate(self):
         # Calculates XYZ coordinates from observation in WGS-84
         OMEGA = 7.2921151467e-5
@@ -99,32 +99,23 @@ class GpsObservation:
         n0 = sqrt(mu / (A ** 3))
         # tk = t - Toc
         n = n0 + self.Delta_n
-        # Mk итерационная дроч
-        cos_nu_k = (cos(E_k) * self.e_Eccentricity) / (1 - self.e_Eccentricity * cos(E_k)
-        E_k = acos(self.e_Eccentricity + cos_nu_k)
-        nu_k = atan(
-            (
-                    (sqrt(1 - self.e_Eccentricity ** 2) * sin(E_k))
-                    /
-                    (1 - self.e_Eccentricity * cos(E_k))
-            )
-            /
-            (
-                    (cos(E_k) * self.e_Eccentricity)
-                    /
-                    (1 - self.e_Eccentricity * cos(E_k))
-            )
-        )
+        M = self.M0 + n * (self.Epoch.second * self.T_oe) # (t_sec это оно?)
 
-        delta_rk
-        delta_ik
-        PHI_k
 
-        X =
-        Y =
-        Z = y
-        return coordinates
-    """
+
+
+        i_k = self.i + di_k + (self.IDOT) *
+
+        x = r_k * cos(u_k)
+        y = r_k * sin(u_k)
+
+        OMEGA_k = self.OMEGA0 + (OMEGA - OMEGA_e) * t_k - OMEGA_e * self.T_oe
+
+        X = x * cos(OMEGA_k) - y * cos(i_k) * sin(OMEGA_k)
+        Y = x * sin(OMEGA_k) + y * cos(i_k) * cos(OMEGA_k)
+        Z = y * sin(i_k)
+        return [X, Y, Z]
+"""
 
 
 class GpsNavigationMessageFile:
@@ -178,7 +169,7 @@ class GpsNavigationMessageFile:
                 self.header_end_line += 1
 
         # Reading header data
-        self.header = GpsNavMessageHeader()
+        # self.header = GpsNavMessageHeader()
 
         # Reading observations
         self.amount_of_observations = int((len(self.data) - self.header_end_line) / 8)
