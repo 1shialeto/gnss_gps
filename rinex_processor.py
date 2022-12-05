@@ -13,6 +13,17 @@ class Epoch:
         self.hour = hour
         self.minute = minute
         self.second = second
+        Day_month = [[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],  # Leap year
+                     [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]]  # Standard year
+        isLeapYear = int('20' + str(self.year)) % 4
+        self.GPSDay = Day_month[isLeapYear][self.month] + self.day - 1
+        N_year = self.year - 1980
+        Day_year = N_year * 365 + int(N_year / 4)
+        self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.second  # T_sec == tGPSsec
+
+        # WN = 0  # Week number !!!!
+        # GPSsec = self.tGPSsec - WN * 7 * 86400  # Time since the beginning of the current GPS week
+        # Not used because the week number is not defined
 
 
 class GpsNavMessageHeader:
