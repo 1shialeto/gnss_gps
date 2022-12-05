@@ -12,6 +12,7 @@ nsk1 = GpsNavigationMessageFile(path)
 scene = canvas(title='Местоположение спутников ECEF', width=1500, height=900, center=vector(5, 0, 0),
                background=color.black)
 
+
 a = 6378137
 b = 6356752.3142
 # the first ellipsoid
@@ -30,7 +31,8 @@ for i in range(len(nsk1.observations)):
     z = xyz[2]
     satellites.append(sphere(pos=vector(x, y, z), radius=100000, color=color.white))
 
-light = distant_light(direction=vector(0.22,  0.44,  2 + pi),       color=color.gray(2))
+light = distant_light(direction=vector(0.22,  0.44,  2 + pi),       color=color.gray(1))
+scene.ambient = color.gray(0.7)
 
 x = arrow(pos=vector(0, 0, 0),
           axis=vector(0, 0, 0),
@@ -50,21 +52,21 @@ z = arrow(pos=vector(0, 0, 0),
 
 oxy = box(pos=vector(0, 0, 0),
           length=55000000,
-          height=1000,
+          height=10000,
           width=55000000,
           opacity=0.2,
           color=color.green)
 oyz = box(pos=vector(0, 0, 0),
           axis=vector(0, pi, 0),
           length=55000000,
-          height=1000,
+          height=10000,
           width=55000000,
           color=color.red,
           opacity=0.2)
 oxz = box(pos=vector(0, 0, 0),
           length=55000000,
           height=55000000,
-          width=1000,
+          width=10000,
           color=color.blue,
           opacity=0.2)
 
