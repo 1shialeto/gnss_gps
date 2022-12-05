@@ -1,4 +1,4 @@
-from math import sqrt, atan, cos, sin, acos
+from math import sqrt, atan, cos, sin
 import csv
 
 GPS_NAV_MESSAGE_FILE_START_BYTE = 3
@@ -6,28 +6,35 @@ GPS_NAV_MESSAGE_FILE_INFO_DURATION = 19
 
 
 class Epoch:
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: float):
-        self.year = year  # 2 digits, padded with 0 if necessary
-        self.month = month
-        self.day = day
+    def __init__(self, outer_instance, year: int, month: int, day: int, hour: int, minute: int, second: float):
+        self.year_m = year  # 2 digits, padded with 0 if necessary
+        # Года до 2000 не учитываются
+        self.real_year_m = 2000 + year
+        self.month_m = month
+        self.day_m = day
+
         self.hour = hour
         self.minute = minute
         self.second = second
+        self.t_sec = self.second + self.minute * 60 + self.hour * 3600
+
         Day_month = [[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],  # Leap year
                      [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]]  # Standard year
-        isLeapYear = int('20' + str(self.year)) % 4
-        self.GPSDay = Day_month[isLeapYear][self.month] + self.day - 1
-        N_year = self.year - 1980
-        Day_year = N_year * 365 + int(N_year / 4)
-        self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.second  # T_sec == tGPSsec
+        isLeapYear = 0 if self.real_year_m % 4 == 0 else 1
+        self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 1
 
-        # WN = 0  # Week number !!!!
-        # GPSsec = self.tGPSsec - WN * 7 * 86400  # Time since the beginning of the current GPS week
-        # Not used because the week number is not defined
+        N_year = self.real_year_m - 1980
+        Day_year = N_year * 365 + int(N_year / 4)
+        self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.t_sec  # ???
+
+        self.outer_instance = outer_instance
+        WN = outer_instance.GPS_Week
+        self.GPSsec = self.tGPSsec - WN * 7 * 86400  # Time since the beginning of the current GPS week
 
 
 class GpsNavMessageHeader:
-    def __init__(self, Format_version, File_type, PGM, Run_by, Date, Comment, ION_ALPHA, ION_BETA, A0, A1, T, W, Leap_seconds):
+    def __init__(self, Format_version, File_type, PGM, Run_by, Date, Comment, ION_ALPHA, ION_BETA,
+                 A0, A1, T, W, Leap_seconds):
         self.Format_version = Format_version
         self.File__type = File_type
         self.PGM = PGM
@@ -54,7 +61,6 @@ class GpsObservation:
                  ):
         # === OBS. RECORD: PRN / EPOCH / SV CLK ===
         self.Satellite_PRN_number = Satellite_PRN_number
-        self.Epoch = Epoch(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
         self.SV_clock_bias = SV_clock_bias
         self.SV_clock_drift = SV_clock_drift
         self.SV_clock_drift_rate = SV_clock_drift_rate
@@ -91,17 +97,26 @@ class GpsObservation:
         # === OBS. RECORD: BROADCAST ORBIT - 7 ===
         self.t_tm = t_tm
         self.Fit_interval = Fit_interval
+        # === Epoch init ===
+        self.Epoch = Epoch(self, year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+
+        self.t_k = self.Epoch.t_sec - self.T_oe
+        # Учёт момент перехода "начало/конец недели"
+        if self.t_k > 302400:
+            self.t_k -= 604800
+        elif self.t_k < -302400:
+            self.t_k += 604800
 
     def get_list(self) -> list:
-        out_list = [self.Satellite_PRN_number, self.Epoch.year, self.Epoch.month, self.Epoch.day, self.Epoch.hour,
+        out_list = [self.Satellite_PRN_number, self.Epoch.year_m, self.Epoch.month_m, self.Epoch.day_m, self.Epoch.hour,
                     self.Epoch.minute, self.Epoch.second, self.SV_clock_bias, self.SV_clock_drift,
                     self.SV_clock_drift_rate,
                     self.IODE, self.C_rs, self.Delta_n, self.M0, self.C_uc, self.e_Eccentricity, self.C_us, self.sqrt_A,
-                    self.T_oe, self.C_ic, self.OMEGA0, self.C_is, self.i0, self.C_rc, self.omega, self.OMEGA_DOT, self.IDOT,
+                    self.T_oe, self.C_ic, self.OMEGA0, self.C_is, self.i0, self.C_rc, self.omega, self.OMEGA_DOT,
+                    self.IDOT,
                     self.Codes_on_L2_channel, self.GPS_Week, self.L2_P, self.SV_accuracy, self.SV_health,
                     self.TGD, self.IODS, self.t_tm, self.Fit_interval]
         return out_list
-
 
     def calculate(self):
         # Calculates XYZ coordinates from observation in WGS-84
@@ -110,43 +125,48 @@ class GpsObservation:
         A = self.sqrt_A ** 2
         n0 = sqrt(mu / (A ** 3))
         n = n0 + self.Delta_n
-        M = self.M0 + n * (self.Epoch.tGPSsec * self.T_oe)
 
-        E = 0
+        M = self.M0 + n * self.t_k
 
-        cos_nu = ((cos(E) - self.e_Eccentricity)
+        # Переделать под нормальный вид
+        E = [M]
+        for i in range(7):
+            value = M + self.e_Eccentricity * sin(E[i])
+            E.append(value)
+
+        E_final = E[7]
+
+        cos_nu = ((cos(E_final) - self.e_Eccentricity)
                   /
-                  (1 - self.e_Eccentricity * cos(E)))
+                  (1 - self.e_Eccentricity * cos(E_final)))
 
-        sin_nu = ((sqrt(1 - self.e_Eccentricity) * sin(E))
+        sin_nu = ((sqrt(1 - self.e_Eccentricity) * sin(E_final))
                   /
-                  (1 - self.e_Eccentricity * cos(E)))
+                  (1 - self.e_Eccentricity * cos(E_final)))
 
         nu = atan(sin_nu / cos_nu)
 
         PHI = nu + self.omega
 
-        du = self.C_us * sin(2*PHI) + self.C_uc * cos(2*PHI)
-        dr = self.C_rs * sin(2*PHI) + self.C_rc * cos(2*PHI)
-        di = self.C_is * sin(2*PHI) + self.C_ic * cos(2*PHI)
+        du = self.C_us * sin(2 * PHI) + self.C_uc * cos(2 * PHI)
+        dr = self.C_rs * sin(2 * PHI) + self.C_rc * cos(2 * PHI)
+        di = self.C_is * sin(2 * PHI) + self.C_ic * cos(2 * PHI)
 
         u = PHI + du
-        r = A * (1 - self.e_Eccentricity * cos(E)) + dr
-        i = self.i0 + di + self.IDOT * (self.Epoch.tGPSsec - self.T_oe)
+        r = A * (1 - self.e_Eccentricity * cos(E_final)) + dr
+        i = self.i0 + di + self.IDOT * self.t_k
 
         # Orbital coordinates of satellite
         x = r * cos(u)
         y = r * sin(u)
 
-        OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * (self.Epoch.tGPSsec - self.T_oe) - OMEGA_e * self.T_oe
-        # вопрос ?? тут юзать OMEGA_DOT или юзать константу из WGS 84 ??
+        OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * self.t_k - OMEGA_e * self.T_oe
 
         # Satellite coordinates in ECEF CS (WGS-84)
         X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
         Y = x * sin(OMEGA_k) + y * cos(i) * cos(OMEGA_k)
         Z = y * sin(i)
         return [X, Y, Z]
-
 
 
 class GpsNavigationMessageFile:
@@ -248,19 +268,13 @@ class GpsNavigationMessageFile:
                                                     TGD, IODS, t_tm, Fit_interval))
 
     def create_csv_sheet(self):
-        try:
-            file = open(f'{self.file_name}.csv', 'w', newline='')
-        except PermissionError:
-            print("[ERROR]: Permission denied. Maybe file already exist")
-            return None
-
-        writer = csv.writer(file)
-        header = 'Satellite_PRN_number, year, month, day, hour, minute, second, SV_clock_bias, SV_clock_drift, ' \
-                 'SV_clock_drift_rate, IODE, C_rs, Delta_n, M0, C_uc, e_Eccentricity, C_us, sqrt_A, T_oe, C_ic, ' \
-                 'OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT, Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, ' \
-                 'SV_health, TGD, IODS, t_tm, Fit_interval'.replace(' ', '').split(',')
-        writer.writerow(header)
-        for i in range(len(self.observations)):
-            data = self.observations[i].get_list()
-            writer.writerow(data)
-        file.close()
+        with open(f'{self.file_name}.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            header = 'Satellite_PRN_number, year, month, day, hour, minute, second, SV_clock_bias, SV_clock_drift, ' \
+                     'SV_clock_drift_rate, IODE, C_rs, Delta_n, M0, C_uc, e_Eccentricity, C_us, sqrt_A, T_oe, C_ic, ' \
+                     'OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT, Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, ' \
+                     'SV_health, TGD, IODS, t_tm, Fit_interval'.replace(' ', '').split(',')
+            writer.writerow(header)
+            for i in range(len(self.observations)):
+                data = self.observations[i].get_list()
+                writer.writerow(data)
