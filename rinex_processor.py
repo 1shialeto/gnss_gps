@@ -119,7 +119,7 @@ class GpsObservation:
         return out_list
 
     def calculate(self):
-        # Calculates XYZ coordinates from observation in WGS-84
+        # Returns satellite XYZ coordinates in ECEF CS (WGS-84)
         OMEGA_e = 7.2921151467e-5
         mu = 3.986005e+14
         A = self.sqrt_A ** 2
@@ -162,7 +162,6 @@ class GpsObservation:
 
         OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * self.t_k - OMEGA_e * self.T_oe
 
-        # Satellite coordinates in ECEF CS (WGS-84)
         X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
         Y = x * sin(OMEGA_k) + y * cos(i) * cos(OMEGA_k)
         Z = y * sin(i)
