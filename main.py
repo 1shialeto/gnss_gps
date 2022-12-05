@@ -1,8 +1,5 @@
-import vpython
-from math import pi
-
 from rinex_processor import GpsNavigationMessageFile
-from math import sqrt
+from math import pi, sqrt
 from vpython import *
 
 path = 'rinex_files/nsk10160.22n'
@@ -11,7 +8,6 @@ nsk1 = GpsNavigationMessageFile(path)
 
 scene = canvas(title='Местоположение спутников ECEF', width=1500, height=900, center=vector(5, 0, 0),
                background=color.gray(0.07))
-
 
 a = 6378137
 b = 6356752.3142
@@ -72,10 +68,3 @@ oxz = box(pos=vector(0, 0, 0),
           color=color.blue,
           opacity=0.2,
           texture='img/t_planes.jpg')
-
-# ang = 0
-# rotate_rate = 0.00005
-# while True:
-#    rate(10)
-#    scene.camera.rotate(ang)
-#    ang += rotate_rate
