@@ -101,32 +101,52 @@ class GpsObservation:
                     self.Codes_on_L2_channel, self.GPS_Week, self.L2_P, self.SV_accuracy, self.SV_health,
                     self.TGD, self.IODS, self.t_tm, self.Fit_interval]
         return out_list
-"""
+
+
     def calculate(self):
         # Calculates XYZ coordinates from observation in WGS-84
-        OMEGA = 7.2921151467e-5
+        OMEGA_e = 7.2921151467e-5
         mu = 3.986005e+14
         A = self.sqrt_A ** 2
         n0 = sqrt(mu / (A ** 3))
-        # tk = t - Toc
         n = n0 + self.Delta_n
-        M = self.M0 + n * (self.Epoch.second * self.T_oe) # (t_sec это оно?)
+        M = self.M0 + n * (self.Epoch.tGPSsec * self.T_oe)
 
+        E = 0
 
+        cos_nu = ((cos(E) - self.e_Eccentricity)
+                  /
+                  (1 - self.e_Eccentricity * cos(E)))
 
+        sin_nu = ((sqrt(1 - self.e_Eccentricity) * sin(E))
+                  /
+                  (1 - self.e_Eccentricity * cos(E)))
 
-        i_k = self.i + di_k + (self.IDOT) *
+        nu = atan(sin_nu / cos_nu)
 
-        x = r_k * cos(u_k)
-        y = r_k * sin(u_k)
+        PHI = nu + self.omega
 
-        OMEGA_k = self.OMEGA0 + (OMEGA - OMEGA_e) * t_k - OMEGA_e * self.T_oe
+        du = self.C_us * sin(2*PHI) + self.C_uc * cos(2*PHI)
+        dr = self.C_rs * sin(2*PHI) + self.C_rc * cos(2*PHI)
+        di = self.C_is * sin(2*PHI) + self.C_ic * cos(2*PHI)
 
-        X = x * cos(OMEGA_k) - y * cos(i_k) * sin(OMEGA_k)
-        Y = x * sin(OMEGA_k) + y * cos(i_k) * cos(OMEGA_k)
-        Z = y * sin(i_k)
+        u = PHI + du
+        r = A * (1 - self.e_Eccentricity * cos(E)) + dr
+        i = self.i0 + di + self.IDOT * (self.Epoch.tGPSsec - self.T_oe)
+
+        # Orbital coordinates of satellite
+        x = r * cos(u)
+        y = r * sin(u)
+
+        OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * (self.Epoch.tGPSsec - self.T_oe) - OMEGA_e * self.T_oe
+        # вопрос ?? тут юзать OMEGA_DOT или юзать константу из WGS 84 ??
+
+        # Satellite coordinates in ECEF CS (WGS-84)
+        X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
+        Y = x * sin(OMEGA_k) + y * cos(i) * cos(OMEGA_k)
+        Z = y * sin(i)
         return [X, Y, Z]
-"""
+
 
 
 class GpsNavigationMessageFile:
