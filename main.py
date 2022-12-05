@@ -10,7 +10,7 @@ path = 'rinex_files/nsk10160.22n'
 nsk1 = GpsNavigationMessageFile(path)
 
 scene = canvas(title='Местоположение спутников ECEF', width=1500, height=900, center=vector(5, 0, 0),
-               background=color.black)
+               background=color.gray(0.07))
 
 
 a = 6378137
@@ -52,23 +52,26 @@ z = arrow(pos=vector(0, 0, 0),
 
 oxy = box(pos=vector(0, 0, 0),
           length=55000000,
-          height=10000,
+          height=100000,
           width=55000000,
           opacity=0.2,
-          color=color.green)
+          color=color.green,
+          texture='img/t_planes.jpg')
 oyz = box(pos=vector(0, 0, 0),
           axis=vector(0, pi, 0),
           length=55000000,
-          height=10000,
+          height=100000,
           width=55000000,
           color=color.red,
-          opacity=0.2)
+          opacity=0.2,
+          texture='img/t_planes.jpg')
 oxz = box(pos=vector(0, 0, 0),
           length=55000000,
           height=55000000,
-          width=10000,
+          width=100000,
           color=color.blue,
-          opacity=0.2)
+          opacity=0.2,
+          texture='img/t_planes.jpg')
 
 # ang = 0
 # rotate_rate = 0.00005
