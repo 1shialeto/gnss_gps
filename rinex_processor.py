@@ -140,7 +140,7 @@ class GpsObservation:
                   /
                   (1 - self.e_Eccentricity * cos(E_final)))
 
-        sin_nu = ((sqrt(1 - self.e_Eccentricity) * sin(E_final))
+        sin_nu = ((sqrt(1 - self.e_Eccentricity ** 2) * sin(E_final))
                   /
                   (1 - self.e_Eccentricity * cos(E_final)))
 

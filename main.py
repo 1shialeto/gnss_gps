@@ -2,6 +2,10 @@ from rinex_processor import GpsNavigationMessageFile
 from math import pi, sqrt
 from vpython import *
 
+COLORS = [color.red, color.yellow, color.black, color.green, color.orange, color.white, color.blue,
+          color.cyan, color.magenta]
+
+
 path = 'rinex_files/nsk10160.22n'
 
 nsk1 = GpsNavigationMessageFile(path)
@@ -21,11 +25,13 @@ earth = ellipsoid(pos=vector(0, 0, 0),
                   texture={'file': 'img/t_earth.jpg'})
 satellites = []
 for i in range(len(nsk1.observations)):
-    xyz = nsk1.observations[i].calculate()
+    satellite = nsk1.observations[i]
+    # color = COLORS[int(satellite.Epoch.hour / 24 * 9)]
+    xyz = satellite.calculate()
     x = xyz[0]
     y = xyz[1]
     z = xyz[2]
-    satellites.append(sphere(pos=vector(x, y, z), radius=100000, color=color.white))
+    satellites.append(sphere(pos=vector(x, y, z), radius=100000, color=color.yellow))
 
 light = distant_light(direction=vector(0.22,  0.44,  2 + pi),       color=color.gray(1))
 scene.ambient = color.gray(0.7)
@@ -68,3 +74,6 @@ oxz = box(pos=vector(0, 0, 0),
           color=color.blue,
           opacity=0.2,
           texture='img/t_planes.jpg')
+
+while True:
+    pass
