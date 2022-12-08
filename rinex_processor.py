@@ -100,12 +100,12 @@ class GpsObservation:
         # === Epoch init ===
         self.Epoch = Epoch(self, year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
-        self.t_k = self.Epoch.t_sec - self.T_oe
-        # Учёт момент перехода "начало/конец недели"
-        if self.t_k > 302400:
-            self.t_k -= 604800
-        elif self.t_k < -302400:
-            self.t_k += 604800
+        self.t_k = self.Epoch.GPSsec - self.T_oe
+        # Учёт момента перехода "начало/конец недели"
+        if self.t_k > 302_400:
+            self.t_k -= 604_800
+        elif self.t_k < -302_400:
+            self.t_k += 604_800
 
     def get_list(self) -> list:
         out_list = [self.Satellite_PRN_number, self.Epoch.year_m, self.Epoch.month_m, self.Epoch.day_m, self.Epoch.hour,
@@ -118,10 +118,10 @@ class GpsObservation:
                     self.TGD, self.IODS, self.t_tm, self.Fit_interval]
         return out_list
 
-    def calculate(self):
+    def calculate_coordinates(self):
         # Calculates XYZ coordinates from observation in WGS-84
-        OMEGA_e = 7.2921151467e-5
-        mu = 3.986005e+14
+        OMEGA_e = 7.292_115_146_7e-5
+        mu = 3.986_005e+14
         A = self.sqrt_A ** 2
         n0 = sqrt(mu / (A ** 3))
         n = n0 + self.Delta_n
@@ -161,6 +161,62 @@ class GpsObservation:
         y = r * sin(u)
 
         OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * self.t_k - OMEGA_e * self.T_oe
+
+        # Satellite coordinates in ECEF CS (WGS-84)
+        X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
+        Y = x * sin(OMEGA_k) + y * cos(i) * cos(OMEGA_k)
+        Z = y * sin(i)
+        return [X, Y, Z]
+
+    def calculate_coordinates_for_animation(self, time_inp):
+        # Calculates XYZ coordinates from observation in WGS-84
+        time = self.Epoch.GPSsec - time_inp
+        if time > 302400:
+            time -= 604800
+        elif time < -302400:
+            time += 604800
+
+        OMEGA_e = 7.2921151467e-5
+        mu = 3.986005e+14
+        A = self.sqrt_A ** 2
+        n0 = sqrt(mu / (A ** 3))
+        n = n0 + self.Delta_n
+
+        M = self.M0 + n * time
+
+        # Переделать под нормальный вид
+        E = [M]
+        for i in range(7):
+            value = M + self.e_Eccentricity * sin(E[i])
+            E.append(value)
+
+        E_final = E[7]
+
+        cos_nu = ((cos(E_final) - self.e_Eccentricity)
+                  /
+                  (1 - self.e_Eccentricity * cos(E_final)))
+
+        sin_nu = ((sqrt(1 - self.e_Eccentricity ** 2) * sin(E_final))
+                  /
+                  (1 - self.e_Eccentricity * cos(E_final)))
+
+        nu = atan(sin_nu / cos_nu)
+
+        PHI = nu + self.omega
+
+        du = self.C_us * sin(2 * PHI) + self.C_uc * cos(2 * PHI)
+        dr = self.C_rs * sin(2 * PHI) + self.C_rc * cos(2 * PHI)
+        di = self.C_is * sin(2 * PHI) + self.C_ic * cos(2 * PHI)
+
+        u = PHI + du
+        r = A * (1 - self.e_Eccentricity * cos(E_final)) + dr
+        i = self.i0 + di + self.IDOT * time
+
+        # Orbital coordinates of satellite
+        x = r * cos(u)
+        y = r * sin(u)
+
+        OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * time - OMEGA_e * self.T_oe
 
         # Satellite coordinates in ECEF CS (WGS-84)
         X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
