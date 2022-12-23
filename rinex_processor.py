@@ -1,5 +1,6 @@
 from math import sqrt, atan, cos, sin
 import csv
+from time import sleep
 
 GPS_NAV_MESSAGE_FILE_START_BYTE = 3
 GPS_NAV_MESSAGE_FILE_INFO_DURATION = 19
@@ -9,6 +10,7 @@ class Epoch:
     def __init__(self, outer_instance, year: int, month: int, day: int, hour: int, minute: int, second: float):
         self.year_m = year  # 2 digits, padded with 0 if necessary
         # Года до 2000 не учитываются
+        # TODO: Сделать учёт годов до 2000
         self.real_year_m = 2000 + year
         self.month_m = month
         self.day_m = day
@@ -128,7 +130,7 @@ class GpsObservation:
 
         M = self.M0 + n * self.t_k
 
-        # Переделать под нормальный вид
+        # TODO: Переделать под нормальный вид
         E = [M]
         for i in range(7):
             value = M + self.e_Eccentricity * sin(E[i])
@@ -170,14 +172,15 @@ class GpsObservation:
 
     def calculate_coordinates_for_animation(self, time_inp):
         # Calculates XYZ coordinates from observation in WGS-84
+        # TODO: починить
         time = self.Epoch.GPSsec - time_inp
         if time > 302400:
             time -= 604800
         elif time < -302400:
             time += 604800
 
-        OMEGA_e = 7.2921151467e-5
-        mu = 3.986005e+14
+        OMEGA_e = 7.292_115_146_7e-5
+        mu = 3.986_005e+14
         A = self.sqrt_A ** 2
         n0 = sqrt(mu / (A ** 3))
         n = n0 + self.Delta_n
@@ -276,7 +279,7 @@ class GpsNavigationMessageFile:
                 self.header_end_line += 1
 
         # Reading header data
-        # self.header = GpsNavMessageHeader()
+        # TODO: self.header = GpsNavMessageHeader()
 
         # Reading observations
         self.amount_of_observations = int((len(self.data) - self.header_end_line) / 8)
@@ -334,3 +337,20 @@ class GpsNavigationMessageFile:
             for i in range(len(self.observations)):
                 data = self.observations[i].get_list()
                 writer.writerow(data)
+
+
+if __name__ == "__main__":
+    path = 'rinex_files/nsk10160.22n'
+    nsk1 = GpsNavigationMessageFile(path)
+    sat_time = 0
+    sat_time_step = 10
+    while True:
+        sleep(50)
+        print(sat_time)
+        xyz = nsk1.observations[1].calculate_coordinates_for_animation(sat_time)
+        print(xyz)
+        sat_time = sat_time + sat_time_step
+        x = xyz[0]
+        y = xyz[1]
+        z = xyz[2]
+        pass

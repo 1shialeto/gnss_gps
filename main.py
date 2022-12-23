@@ -102,8 +102,9 @@ if __name__ == "__main__":
     draw_light()
     draw_ellipsoid()
     draw_coordinate_system()
-    draw_observations(nsk1)
-    # draw_anim()
+    # draw_observations(nsk1)
+    draw_anim()
 
+    # Цикл, чтобы в консоль не лезли ошибки
     while True:
         pass
