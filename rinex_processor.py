@@ -1,37 +1,46 @@
-from math import sqrt, atan, cos, sin
+from math import sqrt, cos, sin, pi, atan2
 import csv
-from time import sleep
 
 GPS_NAV_MESSAGE_FILE_START_BYTE = 3
 GPS_NAV_MESSAGE_FILE_INFO_DURATION = 19
 
 
 class Epoch:
+    # Class, that contains time data. The main purpose is transition from "UTC-time" to "GPS-week-time"
     def __init__(self, outer_instance, year: int, month: int, day: int, hour: int, minute: int, second: float):
         self.year_m = year  # 2 digits, padded with 0 if necessary
-        # Года до 2000 не учитываются
-        # TODO: Сделать учёт годов до 2000
-        self.real_year_m = 2000 + year
+        if self.year_m > 80:
+            self.real_year_m = 1900 + year
+        else:
+            self.real_year_m = 2000 + year
+
         self.month_m = month
         self.day_m = day
-
         self.hour = hour
         self.minute = minute
         self.second = second
-        self.t_sec = self.second + self.minute * 60 + self.hour * 3600
+
+        self.t_sec = self.second + self.minute * 60 + self.hour * 3600  # время, переведённое в секунды
 
         Day_month = [[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],  # Leap year
                      [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]]  # Standard year
+        # TODO: переписать проверку високосного года
         isLeapYear = 0 if self.real_year_m % 4 == 0 else 1
-        self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 1
+
+        # Вот тут ничего не понимаю, формула, которая дана в РГР, всегда даёт значение GPSDay больше на 1 день, чем надо.
+        self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 5
+        # self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 1 - 5
 
         N_year = self.real_year_m - 1980
-        Day_year = N_year * 365 + int(N_year / 4)
-        self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.t_sec  # ???
+        Day_year = N_year * 365 + N_year // 4
+        self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.t_sec
 
+        # TODO: сделать учёт Leap Seconds (високосных секунд) ???
+
+        # outer_instance нужен, чтобы получить WN (Week Number) из GpsObservation
         self.outer_instance = outer_instance
         WN = outer_instance.GPS_Week
-        self.GPSsec = self.tGPSsec - WN * 7 * 86400  # Time since the beginning of the current GPS week
+        self.GPSsec = self.tGPSsec - WN * 7 * 86400
 
 
 class GpsNavMessageHeader:
@@ -102,7 +111,8 @@ class GpsObservation:
         # === Epoch init ===
         self.Epoch = Epoch(self, year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
-        self.t_k = self.Epoch.GPSsec - self.T_oe
+        self.t_k = self.Epoch.t_sec - self.T_oe
+
         # Учёт момента перехода "начало/конец недели"
         if self.t_k > 302_400:
             self.t_k -= 604_800
@@ -128,25 +138,16 @@ class GpsObservation:
         n0 = sqrt(mu / (A ** 3))
         n = n0 + self.Delta_n
 
-        M = self.M0 + n * self.t_k
+        M = (self.M0 + n * self.t_k + 2 * pi) % (2 * pi)
 
         # TODO: Переделать под нормальный вид
-        E = [M]
-        for i in range(7):
-            value = M + self.e_Eccentricity * sin(E[i])
-            E.append(value)
+        E = M
+        for i in range(10):
+            E = M + (self.e_Eccentricity * sin(E))
 
-        E_final = E[7]
+        E_final = (E + 2 * pi) % (2 * pi)
 
-        cos_nu = ((cos(E_final) - self.e_Eccentricity)
-                  /
-                  (1 - self.e_Eccentricity * cos(E_final)))
-
-        sin_nu = ((sqrt(1 - self.e_Eccentricity ** 2) * sin(E_final))
-                  /
-                  (1 - self.e_Eccentricity * cos(E_final)))
-
-        nu = atan(sin_nu / cos_nu)
+        nu = atan2((sqrt(1 - self.e_Eccentricity ** 2)) * sin(E_final) / (1 - self.e_Eccentricity * cos(E_final)), (cos(E_final) - self.e_Eccentricity) / (1 - self.e_Eccentricity * cos(E_final)))
 
         PHI = nu + self.omega
 
@@ -163,63 +164,6 @@ class GpsObservation:
         y = r * sin(u)
 
         OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * self.t_k - OMEGA_e * self.T_oe
-
-        # Satellite coordinates in ECEF CS (WGS-84)
-        X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
-        Y = x * sin(OMEGA_k) + y * cos(i) * cos(OMEGA_k)
-        Z = y * sin(i)
-        return [X, Y, Z]
-
-    def calculate_coordinates_for_animation(self, time_inp):
-        # Calculates XYZ coordinates from observation in WGS-84
-        # TODO: починить
-        time = self.Epoch.GPSsec - time_inp
-        if time > 302400:
-            time -= 604800
-        elif time < -302400:
-            time += 604800
-
-        OMEGA_e = 7.292_115_146_7e-5
-        mu = 3.986_005e+14
-        A = self.sqrt_A ** 2
-        n0 = sqrt(mu / (A ** 3))
-        n = n0 + self.Delta_n
-
-        M = self.M0 + n * time
-
-        # Переделать под нормальный вид
-        E = [M]
-        for i in range(7):
-            value = M + self.e_Eccentricity * sin(E[i])
-            E.append(value)
-
-        E_final = E[7]
-
-        cos_nu = ((cos(E_final) - self.e_Eccentricity)
-                  /
-                  (1 - self.e_Eccentricity * cos(E_final)))
-
-        sin_nu = ((sqrt(1 - self.e_Eccentricity ** 2) * sin(E_final))
-                  /
-                  (1 - self.e_Eccentricity * cos(E_final)))
-
-        nu = atan(sin_nu / cos_nu)
-
-        PHI = nu + self.omega
-
-        du = self.C_us * sin(2 * PHI) + self.C_uc * cos(2 * PHI)
-        dr = self.C_rs * sin(2 * PHI) + self.C_rc * cos(2 * PHI)
-        di = self.C_is * sin(2 * PHI) + self.C_ic * cos(2 * PHI)
-
-        u = PHI + du
-        r = A * (1 - self.e_Eccentricity * cos(E_final)) + dr
-        i = self.i0 + di + self.IDOT * time
-
-        # Orbital coordinates of satellite
-        x = r * cos(u)
-        y = r * sin(u)
-
-        OMEGA_k = self.OMEGA0 + (self.OMEGA_DOT - OMEGA_e) * time - OMEGA_e * self.T_oe
 
         # Satellite coordinates in ECEF CS (WGS-84)
         X = x * cos(OMEGA_k) - y * cos(i) * sin(OMEGA_k)
@@ -342,15 +286,4 @@ class GpsNavigationMessageFile:
 if __name__ == "__main__":
     path = 'rinex_files/nsk10160.22n'
     nsk1 = GpsNavigationMessageFile(path)
-    sat_time = 0
-    sat_time_step = 10
-    while True:
-        sleep(50)
-        print(sat_time)
-        xyz = nsk1.observations[1].calculate_coordinates_for_animation(sat_time)
-        print(xyz)
-        sat_time = sat_time + sat_time_step
-        x = xyz[0]
-        y = xyz[1]
-        z = xyz[2]
-        pass
+    print(nsk1.observations[10].calculate_coordinates())
