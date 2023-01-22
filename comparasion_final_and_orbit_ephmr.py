@@ -1,6 +1,7 @@
 from rinex_processor import GpsNavigationMessageFile
 import matplotlib.pyplot as plt
 import numpy as np
+from math import sqrt
 
 path = 'rinex_files/nsk10160.22n'
 nsk1 = GpsNavigationMessageFile(path)
@@ -64,12 +65,12 @@ for i in range(len(differences)):
 
 
 x = range(0, len(dx))
-y1 = dx
-y2 = dy
-y3 = dz
-plt.bar(x, y1)
-plt.bar(x, y2)
-plt.bar(x, y3, label="Отклонение")
+kvdr = []
+for i in range(len(differences)):
+    kvdr.append(sqrt(differences[i][1]**2 + differences[i][2]**2 + differences[i][3]**2))
+
+plt.bar(x, kvdr)
+
 
 plt.show()
 
