@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import sqrt
 
-path = 'rinex_files/nsk10160.22n'
+path = 'rinex_files/nsk12010.20n' #week 21751
 nsk1 = GpsNavigationMessageFile(path)
 
-f = open('emr21930.sp3')
+f = open('emr21146.sp3')
 data = f.readlines()
 
 
