@@ -284,6 +284,7 @@ class GpsNavigationMessageFile:
 
 
 if __name__ == "__main__":
-    path = 'rinex_files/nsk10160.22n'
+    path = 'rinex_files/nsk12010.20n'
     nsk1 = GpsNavigationMessageFile(path)
-    print(nsk1.observations[10].calculate_coordinates())
+    for i in range(len(nsk1.observations)):
+        print(nsk1.observations[i].calculate_coordinates())
