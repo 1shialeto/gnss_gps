@@ -20,23 +20,21 @@ class Epoch:
         self.minute = minute
         self.second = second
 
-        self.t_sec = self.second + self.minute * 60 + self.hour * 3600  # время, переведённое в секунды
 
+        # Old algo (doesnt work, dont know why)
+        self.t_sec = self.second + self.minute * 60 + self.hour * 3600  # время, переведённое в секунды
         Day_month = [[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],  # Leap year
                      [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]]  # Standard year
-        # TODO: переписать проверку високосного года
         isLeapYear = 0 if self.real_year_m % 4 == 0 else 1
-
         # Вот тут ничего не понимаю, формула, которая дана в РГР, всегда даёт значение GPSDay больше на 1 день, чем надо.
         self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 5
         # self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 1 - 5
-
         N_year = self.real_year_m - 1980
         Day_year = N_year * 365 + N_year // 4
         self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.t_sec
 
-        # TODO: сделать учёт Leap Seconds (високосных секунд) ???
 
+        # self.tGPSsec = 0
         # outer_instance нужен, чтобы получить WN (Week Number) из GpsObservation
         self.outer_instance = outer_instance
         WN = outer_instance.GPS_Week
@@ -62,7 +60,7 @@ class GpsNavMessageHeader:
         self.Leap_seconds = Leap_seconds
 
 
-class GpsObservation:
+class GpsNavMessage:
     def __init__(self, Satellite_PRN_number: int, year: int, month: int, day: int, hour: int, minute: int,
                  second: float, SV_clock_bias: float, SV_clock_drift: float, SV_clock_drift_rate: float, IODE: float,
                  C_rs: float, Delta_n: float, M0: float, C_uc: float, e_Eccentricity: float, C_us: float, sqrt_A: float,
@@ -172,7 +170,7 @@ class GpsObservation:
         return [X, Y, Z]
 
 
-class GpsNavigationMessageFile:
+class GpsNavMessageFile:
 
     @staticmethod
     def convert_raw_data_to_normal_float(raw_string: str) -> float:
@@ -192,7 +190,7 @@ class GpsNavigationMessageFile:
         for j in range(0, 4):
             start = GPS_NAV_MESSAGE_FILE_START_BYTE + GPS_NAV_MESSAGE_FILE_INFO_DURATION * j
             end = GPS_NAV_MESSAGE_FILE_START_BYTE + GPS_NAV_MESSAGE_FILE_INFO_DURATION * (j + 1)
-            values[j] = float(GpsNavigationMessageFile.convert_raw_data_to_normal_float(string[start:end]))
+            values[j] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[start:end]))
         return values
 
     @staticmethod
@@ -204,10 +202,10 @@ class GpsNavigationMessageFile:
         values[3] = int(string[8:11].strip())
         values[4] = int(string[11:15].strip())
         values[5] = int(string[15:17].strip())
-        values[6] = float(GpsNavigationMessageFile.convert_raw_data_to_normal_float(string[17:22]))
-        values[7] = float(GpsNavigationMessageFile.convert_raw_data_to_normal_float(string[22:41]))
-        values[8] = float(GpsNavigationMessageFile.convert_raw_data_to_normal_float(string[41:60]))
-        values[9] = float(GpsNavigationMessageFile.convert_raw_data_to_normal_float(string[60:79]))
+        values[6] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[17:22]))
+        values[7] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[22:41]))
+        values[8] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[41:60]))
+        values[9] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[60:79]))
         return values
 
     def __init__(self, file_gnmf_path: str):
@@ -224,7 +222,7 @@ class GpsNavigationMessageFile:
 
         # Reading header data
         # TODO: self.header = GpsNavMessageHeader()
-
+        # TODO: Refactor
         # Reading observations
         self.amount_of_observations = int((len(self.data) - self.header_end_line) / 8)
         self.observations = [] * self.amount_of_observations
@@ -263,12 +261,12 @@ class GpsNavigationMessageFile:
             bo7 = self.read_line(self.data[k * 8 + 8 + self.header_end_line])
             t_tm, Fit_interval = bo7[0], bo7[1]
 
-            self.observations.append(GpsObservation(Satellite_PRN_number, year, month, day, hour, minute,
-                                                    second, SV_clock_bias, SV_clock_drift, SV_clock_drift_rate, IODE,
-                                                    C_rs, Delta_n, M0, C_uc, e_Eccentricity, C_us, sqrt_A,
-                                                    T_oe, C_ic, OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT,
-                                                    Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, SV_health,
-                                                    TGD, IODS, t_tm, Fit_interval))
+            self.observations.append(GpsNavMessage(Satellite_PRN_number, year, month, day, hour, minute,
+                                                   second, SV_clock_bias, SV_clock_drift, SV_clock_drift_rate, IODE,
+                                                   C_rs, Delta_n, M0, C_uc, e_Eccentricity, C_us, sqrt_A,
+                                                   T_oe, C_ic, OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT,
+                                                   Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, SV_health,
+                                                   TGD, IODS, t_tm, Fit_interval))
 
     def create_csv_sheet(self):
         with open(f'{self.file_name}.csv', 'w', newline='') as file:
@@ -284,7 +282,7 @@ class GpsNavigationMessageFile:
 
 
 if __name__ == "__main__":
-    path = 'rinex_files/nsk12010.20n'
-    nsk1 = GpsNavigationMessageFile(path)
+    path = '../data/raw/nsk12010.20n'
+    nsk1 = GpsNavMessageFile(path)
     for i in range(len(nsk1.observations)):
         print(nsk1.observations[i].calculate_coordinates())

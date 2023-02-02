@@ -1,12 +1,12 @@
-from rinex_processor import GpsNavigationMessageFile
+from src import rinex_processor as rinex
 from vpython import *
 from random import randint
 
 COLORS = [color.red, color.yellow, color.black, color.green, color.orange, color.white, color.blue,
           color.cyan, color.magenta]
 
-path = 'rinex_files/nsk10160.22n'
-nsk1 = GpsNavigationMessageFile(path)
+path = 'data/raw/nsk10160.22n'
+nsk1 = rinex.GpsNavMessageFile(path)
 
 scene = canvas(title='Местоположение спутников ECEF', width=1600, height=900, center=vector(5, 0, 0),
                background=color.gray(0.07))

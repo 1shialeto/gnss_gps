@@ -1,77 +1,110 @@
-from rinex_processor import GpsNavigationMessageFile
+from rinex_processor import GpsNavMessageFile
 import matplotlib.pyplot as plt
 import numpy as np
 from math import sqrt
+from datetime import datetime
 
-path = 'rinex_files/nsk12010.20n' #week 21751
-nsk1 = GpsNavigationMessageFile(path)
+# =========================================================================
+navigation_file_path = '../data/raw/nsk12010.20n'
+# =========================================================================
 
-f = open('emr21146.sp3')
-data = f.readlines()
+# Calculating list of XYZ-coordinates with navigation messages:
+nsk1 = GpsNavMessageFile(navigation_file_path)
+XYZ_orbital = []
+for index, observation in enumerate(nsk1.observations):
+    try:
+        xyz = observation.calculate_coordinates()
+        XYZ_orbital.append(xyz)
+    except EnvironmentError:
+        print(f'Error with calculating XYZ in obsN{index}.')
+        XYZ_orbital.append([0, 0, 0])
+        continue
 
 
-def find_final_xyz(epoch: str, prn: int) -> [float, float, float]:
-    header_end_line = 0
-    for text_line in data:
-        if epoch in text_line.replace("  ", " "):
-            break
+# Creating list of XYZ-coordinates from final-ephemeris:
+XYZ_final = []
+
+
+def find_xyz_in_final(observation, epoch) -> [float, float, float]:
+    # Check existence of final ephemeris file and get if it needed
+
+    number_of_day_of_week = datetime.isoweekday(datetime(year, month, day))
+    if number_of_day_of_week == 7:
+        number_of_day_of_week = 0
+
+    final_ephemeris_number = str(int(observation.GPS_Week)) + str(number_of_day_of_week)
+    try:
+        # NOTE: файлы final могут начинаться с букв 'emr' или 'igs', надо бы как то это отлавливать, но мне лень
+        # Поэтому файлы просто хранятся с приставкой gps*****.sp3.
+        ephemeris_file_path = open(f'../data/external/gps{final_ephemeris_number}.sp3')
+    except FileNotFoundError:
+        # TODO: Реализация автоматического получения файла с серверов https://nasa.gov
+        print(f'ФАЙЛ ФИНАЛЬНЫХ ЭФЕМЕРИД gps{final_ephemeris_number}.sp3 НЕ НАЙДЕН. СКАЧАЙТЕ ФАЙЛ И ПОМЕСТИТЕ ЕГО')
+        print('В ПАПКУ: "data/external/')
+        return [0, 0, 0]
+
+    final_ephemeris_data = ephemeris_file_path.readlines()
+
+    for line_index, text_line in enumerate(final_ephemeris_data):
+        if text_line[0] == '*' and int(text_line.split()[4]) == epoch.hour and int(text_line.split()[5]) == epoch.minute:
+            # мы нашли строку с правильной эпохой
+            for i in range(32):
+                current_string = final_ephemeris_data[line_index + i + 1]
+                if current_string[0] == '*':
+                    break
+                elif observation.Satellite_PRN_number == int(current_string[2:4]):
+                    xyz_iter = current_string.split()
+                    x = float(xyz_iter[1])
+                    y = float(xyz_iter[2])
+                    z = float(xyz_iter[3])
+                    return [x, y, z]
+                else:
+                    continue
         else:
-            header_end_line += 1
-    if header_end_line >= len(data):
-        return None
+            continue
 
-    line = data[header_end_line + prn].split()
 
-    x = float(line[1])
-    y = float(line[2])
-    z = float(line[3])
-    return [x, y, z]
+for num, observation in enumerate(nsk1.observations):
+    # Check existence of final ephemeris file and get if it needed
+    epoch = observation.Epoch
+    year = epoch.real_year_m
+    month = epoch.month_m
+    day = epoch.day_m
+    hour = epoch.hour
+    minute = epoch.minute
+    second = epoch.second
+
+    if minute % 15 == 0 and second == 0:  # Если время наблюдения кратно 15 минутам:
+        # Find final XYZ in ephemeris file
+        xyz_final = find_xyz_in_final(observation, epoch)
+        XYZ_final.append(xyz_final)
+    else:
+        # Do interpolation
+        XYZ_final.append([0, 0, 0])
+        """
+        epoch_before = Epoch()
+        epoch_after = Epoch()
+        """
+        ...
 
 
 # make data:
-differences = []
-for i in range(len(nsk1.observations)):
-    satellite = nsk1.observations[i]
-    # color = COLORS[int(satellite.Epoch.hour / 24 * 9)]
-    xyz = satellite.calculate_coordinates()
-    prn = nsk1.observations[i].Satellite_PRN_number
-    x_o = xyz[0]
-    y_o = xyz[1]
-    z_o = xyz[2]
-    epoch = nsk1.observations[i].Epoch  # 2022  1 16  0  0  0.00000000
-    epoch_string = "* " + str(epoch.real_year_m) + " " + str(epoch.month_m) + " " + str(epoch.day_m) + " " + str(epoch.hour) + " " + str(epoch.minute) + " " + str(epoch.second)
-    final_xyz = find_final_xyz(epoch_string, prn)
-    if not final_xyz:
-        continue
-
-    x_f = final_xyz[0] * 1000
-    y_f = final_xyz[1] * 1000
-    z_f = final_xyz[2] * 1000
-
-    obs = [prn, x_o - x_f, y_o - y_f, z_o - z_f]
-    differences.append(obs)
-
-dx = []
-for i in range(len(differences)):
-    dx.append(differences[i][1])
-
-dy = []
-for i in range(len(differences)):
-    dy.append(differences[i][2])
-
-dz = []
-for i in range(len(differences)):
-    dz.append(differences[i][3])
+deviation = []
+x_labels = []
+for i in range(211):
+    dx = XYZ_final[i][0]*1000 - XYZ_orbital[i][0]
+    dy = XYZ_final[i][1]*1000 - XYZ_orbital[i][1]
+    dz = XYZ_final[i][2]*1000 - XYZ_orbital[i][2]
+    obs = sqrt(dx**2 + dy**2 + dz**2)
+    deviation.append(obs)
+    print(obs)
 
 
-x = range(0, len(dx))
-kvdr = []
-for i in range(len(differences)):
-    kvdr.append(sqrt(differences[i][1]**2 + differences[i][2]**2 + differences[i][3]**2))
+x = range(211)
 
-plt.bar(x, kvdr)
+
+plt.bar(x, deviation)
 
 
 plt.show()
-
 
