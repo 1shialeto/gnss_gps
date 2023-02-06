@@ -6,7 +6,7 @@ GPS_NAV_MESSAGE_FILE_INFO_DURATION = 19
 
 
 class Epoch:
-    # Class, that contains time data. The main purpose is transition from "UTC-time" to "GPS-week-time"
+    # contains time data
     def __init__(self, outer_instance, year: int, month: int, day: int, hour: int, minute: int, second: float):
         self.year_m = year  # 2 digits, padded with 0 if necessary
         if self.year_m > 80:
@@ -20,7 +20,6 @@ class Epoch:
         self.minute = minute
         self.second = second
 
-
         # Old algo (doesnt work, dont know why)
         self.t_sec = self.second + self.minute * 60 + self.hour * 3600  # время, переведённое в секунды
         Day_month = [[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],  # Leap year
@@ -33,12 +32,39 @@ class Epoch:
         Day_year = N_year * 365 + N_year // 4
         self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.t_sec
 
-
         # self.tGPSsec = 0
         # outer_instance нужен, чтобы получить WN (Week Number) из GpsObservation
         self.outer_instance = outer_instance
         WN = outer_instance.GPS_Week
         self.GPSsec = self.tGPSsec - WN * 7 * 86400
+
+        self.__unix_seconds = 0
+        self.__gps_seconds = 0
+
+    def calc_gps_time(self, unix_time) -> float:
+        ...
+
+    @property
+    def unix(self):
+        return self.__unix_seconds
+
+    def gps(self) -> float:
+        return self.__gps_seconds
+
+    def gps_week(self) -> int:
+        return self.__gps_seconds // 604_800
+
+    def gps_day(self) -> int:
+        return self.__gps_seconds
+
+    def time(self):
+        return 0
+
+    def date(self):
+        return 0
+
+    def epoch(self):
+        return 0
 
 
 class GpsNavMessageHeader:
@@ -145,7 +171,8 @@ class GpsNavMessage:
 
         E_final = (E + 2 * pi) % (2 * pi)
 
-        nu = atan2((sqrt(1 - self.e_Eccentricity ** 2)) * sin(E_final) / (1 - self.e_Eccentricity * cos(E_final)), (cos(E_final) - self.e_Eccentricity) / (1 - self.e_Eccentricity * cos(E_final)))
+        nu = atan2((sqrt(1 - self.e_Eccentricity ** 2)) * sin(E_final) / (1 - self.e_Eccentricity * cos(E_final)),
+                   (cos(E_final) - self.e_Eccentricity) / (1 - self.e_Eccentricity * cos(E_final)))
 
         PHI = nu + self.omega
 
