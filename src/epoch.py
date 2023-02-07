@@ -1,6 +1,14 @@
 class Epoch:
     # contains time data
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
+        """
+        Способы инициализации:
+            string:
+                '*  2020  7 18  0  0  0.00000000'
+                '2020  7 18  0  0  0.00000000'
+                '[int, int, int, int, int, float]'
+                '22  1 16  0  0  0.0000000  '
+        """
 
         """
         self.year_m = year  # 2 digits, padded with 0 if necessary
