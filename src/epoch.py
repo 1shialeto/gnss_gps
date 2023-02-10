@@ -9,7 +9,16 @@ class Epoch:
                 '[int, int, int, int, int, float]'
                 '22  1 16  0  0  0.0000000  '
         """
-
+        if len(args) == 1:
+            arg = args[0]
+            if type(arg) == 'str':
+                epoch_list = arg.split()
+            else:
+                raise ValueError
+        elif len(args) == 6:
+            ...
+        else:
+            raise ValueError
         """
         self.year_m = year  # 2 digits, padded with 0 if necessary
         if self.year_m > 80:
