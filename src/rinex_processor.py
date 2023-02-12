@@ -1,70 +1,9 @@
 from math import sqrt, cos, sin, pi, atan2
+from src.epoch import Epoch
 import csv
 
 GPS_NAV_MESSAGE_FILE_START_BYTE = 3
 GPS_NAV_MESSAGE_FILE_INFO_DURATION = 19
-
-
-class Epoch:
-    # contains time data
-    def __init__(self, outer_instance, year: int, month: int, day: int, hour: int, minute: int, second: float):
-        self.year_m = year  # 2 digits, padded with 0 if necessary
-        if self.year_m > 80:
-            self.real_year_m = 1900 + year
-        else:
-            self.real_year_m = 2000 + year
-
-        self.month_m = month
-        self.day_m = day
-        self.hour = hour
-        self.minute = minute
-        self.second = second
-
-        # Old algo (doesnt work, dont know why)
-        self.t_sec = self.second + self.minute * 60 + self.hour * 3600  # время, переведённое в секунды
-        Day_month = [[0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335],  # Leap year
-                     [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]]  # Standard year
-        isLeapYear = 0 if self.real_year_m % 4 == 0 else 1
-        # Вот тут ничего не понимаю, формула, которая дана в РГР, всегда даёт значение GPSDay больше на 1 день, чем надо.
-        self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 5
-        # self.GPSDay = Day_month[isLeapYear][self.month_m - 1] + self.day_m - 1 - 5
-        N_year = self.real_year_m - 1980
-        Day_year = N_year * 365 + N_year // 4
-        self.tGPSsec = (Day_year + self.GPSDay) * 86400 + self.t_sec
-
-        # self.tGPSsec = 0
-        # outer_instance нужен, чтобы получить WN (Week Number) из GpsObservation
-        self.outer_instance = outer_instance
-        WN = outer_instance.GPS_Week
-        self.GPSsec = self.tGPSsec - WN * 7 * 86400
-
-        self.__unix_seconds = 0
-        self.__gps_seconds = 0
-
-    def calc_gps_time(self, unix_time) -> float:
-        ...
-
-    @property
-    def unix(self):
-        return self.__unix_seconds
-
-    def gps(self) -> float:
-        return self.__gps_seconds
-
-    def gps_week(self) -> int:
-        return self.__gps_seconds // 604_800
-
-    def gps_day(self) -> int:
-        return self.__gps_seconds
-
-    def time(self):
-        return 0
-
-    def date(self):
-        return 0
-
-    def epoch(self):
-        return 0
 
 
 class GpsNavMessageHeader:
@@ -87,12 +26,11 @@ class GpsNavMessageHeader:
 
 
 class GpsNavMessage:
-    def __init__(self, Satellite_PRN_number: int, year: int, month: int, day: int, hour: int, minute: int,
-                 second: float, SV_clock_bias: float, SV_clock_drift: float, SV_clock_drift_rate: float, IODE: float,
-                 C_rs: float, Delta_n: float, M0: float, C_uc: float, e_Eccentricity: float, C_us: float, sqrt_A: float,
-                 T_oe: float, C_ic: float, OMEGA0: float, C_is: float, i0: float, C_rc: float, omega, OMEGA_DOT, IDOT,
-                 Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, SV_health, TGD, IODS, t_tm,
-                 Fit_interval
+    def __init__(self, Satellite_PRN_number: int, epoch: str, SV_clock_bias: float, SV_clock_drift: float,
+                 SV_clock_drift_rate: float, IODE: float, C_rs: float, Delta_n: float, M0: float, C_uc: float,
+                 e_Eccentricity: float, C_us: float, sqrt_A: float, T_oe: float, C_ic: float, OMEGA0: float,
+                 C_is: float, i0: float, C_rc: float, omega, OMEGA_DOT, IDOT, Codes_on_L2_channel, GPS_Week,
+                 L2_P, SV_accuracy, SV_health, TGD, IODS, t_tm, Fit_interval
                  ):
         # === OBS. RECORD: PRN / EPOCH / SV CLK ===
         self.Satellite_PRN_number = Satellite_PRN_number
@@ -133,9 +71,9 @@ class GpsNavMessage:
         self.t_tm = t_tm
         self.Fit_interval = Fit_interval
         # === Epoch init ===
-        self.Epoch = Epoch(self, year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+        self.Epoch = Epoch(epoch)
 
-        self.t_k = self.Epoch.t_sec - self.T_oe
+        self.t_k = self.Epoch.seconds_of_day - self.T_oe
 
         # Учёт момента перехода "начало/конец недели"
         if self.t_k > 302_400:
@@ -144,13 +82,11 @@ class GpsNavMessage:
             self.t_k += 604_800
 
     def get_list(self) -> list:
-        out_list = [self.Satellite_PRN_number, self.Epoch.year_m, self.Epoch.month_m, self.Epoch.day_m, self.Epoch.hour,
-                    self.Epoch.minute, self.Epoch.second, self.SV_clock_bias, self.SV_clock_drift,
+        out_list = [self.Satellite_PRN_number, self.Epoch.epoch, self.SV_clock_bias, self.SV_clock_drift,
                     self.SV_clock_drift_rate,
                     self.IODE, self.C_rs, self.Delta_n, self.M0, self.C_uc, self.e_Eccentricity, self.C_us, self.sqrt_A,
                     self.T_oe, self.C_ic, self.OMEGA0, self.C_is, self.i0, self.C_rc, self.omega, self.OMEGA_DOT,
-                    self.IDOT,
-                    self.Codes_on_L2_channel, self.GPS_Week, self.L2_P, self.SV_accuracy, self.SV_health,
+                    self.IDOT, self.Codes_on_L2_channel, self.GPS_Week, self.L2_P, self.SV_accuracy, self.SV_health,
                     self.TGD, self.IODS, self.t_tm, self.Fit_interval]
         return out_list
 
@@ -222,17 +158,12 @@ class GpsNavMessageFile:
 
     @staticmethod
     def read_first_line(string: str) -> list:
-        values = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Should be NOT ITERABLE (?)
-        values[0] = int(string[0:2].strip())
-        values[1] = int(string[2:5].strip())
-        values[2] = int(string[5:8].strip())
-        values[3] = int(string[8:11].strip())
-        values[4] = int(string[11:15].strip())
-        values[5] = int(string[15:17].strip())
-        values[6] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[17:22]))
-        values[7] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[22:41]))
-        values[8] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[41:60]))
-        values[9] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[60:79]))
+        values = [0, 0, 0, 0, 0]  # Should be NOT ITERABLE (?)
+        values[0] = int(string[0:2].strip())  # prn num
+        values[1] = string[2:22]
+        values[2] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[22:41]))
+        values[3] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[41:60]))
+        values[4] = float(GpsNavMessageFile.convert_raw_data_to_normal_float(string[60:79]))
         return values
 
     def __init__(self, file_gnmf_path: str):
@@ -288,20 +219,19 @@ class GpsNavMessageFile:
             bo7 = self.read_line(self.data[k * 8 + 8 + self.header_end_line])
             t_tm, Fit_interval = bo7[0], bo7[1]
 
-            self.observations.append(GpsNavMessage(Satellite_PRN_number, year, month, day, hour, minute,
-                                                   second, SV_clock_bias, SV_clock_drift, SV_clock_drift_rate, IODE,
-                                                   C_rs, Delta_n, M0, C_uc, e_Eccentricity, C_us, sqrt_A,
-                                                   T_oe, C_ic, OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT,
+            self.observations.append(GpsNavMessage(Satellite_PRN_number, epoch, SV_clock_bias, SV_clock_drift,
+                                                   SV_clock_drift_rate, IODE, C_rs, Delta_n, M0, C_uc, e_Eccentricity,
+                                                   C_us, sqrt_A, T_oe, C_ic, OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT,
                                                    Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, SV_health,
                                                    TGD, IODS, t_tm, Fit_interval))
 
     def create_csv_sheet(self):
         with open(f'{self.file_name}.csv', 'w', newline='') as file:
             writer = csv.writer(file)
-            header = 'Satellite_PRN_number, year, month, day, hour, minute, second, SV_clock_bias, SV_clock_drift, ' \
+            header = 'Satellite_PRN_number, epoch, SV_clock_bias, SV_clock_drift, ' \
                      'SV_clock_drift_rate, IODE, C_rs, Delta_n, M0, C_uc, e_Eccentricity, C_us, sqrt_A, T_oe, C_ic, ' \
-                     'OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT, Codes_on_L2_channel, GPS_Week, L2_P, SV_accuracy, ' \
-                     'SV_health, TGD, IODS, t_tm, Fit_interval'.replace(' ', '').split(',')
+                     'OMEGA0, C_is, i0, C_rc, omega, OMEGA_DOT, IDOT, Codes_on_L2_channel, GPS_Week, L2_P, ' \
+                     'SV_accuracy, SV_health, TGD, IODS, t_tm, Fit_interval'.replace(' ', '').split(',')
             writer.writerow(header)
             for i in range(len(self.observations)):
                 data = self.observations[i].get_list()
