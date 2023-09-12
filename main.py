@@ -6,7 +6,7 @@ COLORS = [color.red, color.yellow, color.black, color.green, color.orange, color
           color.cyan, color.magenta]
 
 path = 'data/raw/nsk10160.22n'
-nsk1 = rinex.GpsNavMessageFile(path)
+# nsk1 = rinex.GpsNavMessageFile(path)
 
 scene = canvas(title='Местоположение спутников ECEF', width=1600, height=900, center=vector(5, 0, 0),
                background=color.gray(0.07))
@@ -88,14 +88,35 @@ def draw_coordinate_system():
               texture='img/t_planes.jpg')
 
 
+def draw_vectors():
+    one = arrow(pos=vector(0, 0, 0),
+              axis=vector(0, 0, 10),
+              length=10000000,
+              shaftwidth=100000,
+              color=color.yellow)
+    two = arrow(pos=vector(0, 0, 0),
+              axis=vector(0, 10, 0),
+              length=10000000,
+              shaftwidth=100000,
+              color=color.yellow)
+    three = arrow(pos=vector(0, 0, 0),
+              axis=vector(-10, 0, 0),
+              length=10000000,
+              shaftwidth=100000,
+              color=color.yellow)
+    four = arrow(pos=vector(0, 0, 0),
+              axis=vector(10, 0, 0),
+              length=10000000,
+              shaftwidth=100000,
+              color=color.yellow)
+
 if __name__ == "__main__":
     draw_light()
     draw_ellipsoid()
     draw_coordinate_system()
-    draw_observations(nsk1)
-    sphere(pos=vector(1000000, 0, 0), radius=100000, color=color.red)
-
+    draw_vectors()
     # Цикл, чтобы в консоль не лезли ошибки
     while True:
         pass
+
 
