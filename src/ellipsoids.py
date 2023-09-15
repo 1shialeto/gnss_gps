@@ -1,32 +1,39 @@
+from math import sqrt, sin
+
+
 class Ellipsoid:
     def __init__(self, **kwargs):
         """
-        kwargs:
-            (a, b) - semi-major axis and semi-minor axis
+            (a: float, b: float) - semi-major axis and semi-minor axis
         OR
-            (a, e2) - semi-major axis and e2
-        # OR
-        #    (a, f) - semi-major axis and flattening (NOT 1/f) (around 1/300....)
+            (a: float, e2: float) - semi-major axis and e2
         """
         if ('a' not in kwargs) or len(kwargs) != 2:
             raise ValueError
         elif 'b' in kwargs:
-            self.a = kwargs['a']
-            self.b = kwargs['b']
+            self.a = float(kwargs['a'])
+            self.b = float(kwargs['b'])
             self.e2 = (self.a ** 2 - self.a ** 2) / self.b ** 2
         elif 'e2' in kwargs:
-            self.a = kwargs['a']
-            self.e2 = kwargs['e2']
+            self.a = float(kwargs['a'])
+            self.e2 = float(kwargs['e2'])
         # elif 'f' in kwargs:
         #     self.a = kwargs['a']
         #     self.f = kwargs['f']
         else:
             raise ValueError
 
-        # self.alpha = (self.a / self.b) / self.a
+    # self.alpha = (self.a / self.b) / self.a
+
+    def N(self, B: float):
+        """
+        :param B: latitude (rads)
+        :return: radius of curvature of the ellipsoid in the first vertical (meters)
+        """
+        N = self.a / sqrt(1 - self.e2 * sin(B) ** 2)
+        return N
 
 
-# Параметры эллипсоидов взяты из работы по космической геодезии "Координатные системы отсчёта
-# и системы времени при решении задач косической геодезии":
-pz90 = Ellipsoid(a=637_813_6, e2=(6.694_366_193_10 * 0.001))
-krasovsky = Ellipsoid(a=637_824_5, e2=0.006_693_42)
+pz9011 = Ellipsoid(a=6_378_136, e2=0.006_694_3662)
+krasovsky = Ellipsoid(a=6_378_245, e2=0.006_693_42)
+wgs84 = Ellipsoid(a=6_378_137, e2=0.006_694_38)
