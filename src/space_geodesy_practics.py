@@ -111,6 +111,7 @@ for i in range(10):
 H_sk95 = (Z_sk95 / sin(B_sk95)) - krasovsky.N(B_sk95) * (1 - krasovsky.e2)
 BLH_sk95 = np.array([[degrees(B_sk95)], [degrees(L_sk95)], [H_sk95]])
 
+
 print(rad2dms(B_sk95))
 print(rad2dms(L_sk95))
 print(round(H_sk95))
