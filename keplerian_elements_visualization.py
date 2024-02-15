@@ -1,18 +1,13 @@
-from src import rinex_processor as rinex
 from vpython import *
-from random import randint
 
 COLORS = [color.red, color.yellow, color.black, color.green, color.orange, color.white, color.blue,
           color.cyan, color.magenta]
 
-path = 'data/raw/nsk10160.22n'
-# nsk1 = rinex.GpsNavMessageFile(path)
-
-scene = canvas(title='Местоположение спутников ECEF', width=1600, height=900, center=vector(5, 0, 0),
+scene = canvas(title='Визуализация пути ИСЗ по элементам орбиты Кеплера', width=1600, height=900, center=vector(5, 0, 0),
                background=color.gray(0.07))
 
 
-def draw_ellipsoid():
+def draw_earth():
     """
     Отрисовывает Земной эллипсоид
     """
@@ -27,29 +22,6 @@ def draw_ellipsoid():
                       texture={'file': 'img/t_earth.jpg',
                                'bumpmap': 'img/t_earth_normal.jpg'})
 
-
-def draw_observations(obs):
-    """
-    Отрисовывает положение всех наблюдений
-    """
-    satellites = []
-    for i in range(len(obs.observations)):
-        satellite = obs.observations[i]
-        # color = COLORS[int(satellite.Epoch.hour / 24 * 9)]
-        xyz = satellite.calculate_coordinates()
-        x = xyz[0]
-        y = xyz[1]
-        z = xyz[2]
-        satellites.append(sphere(pos=vector(x, y, z), radius=100000, color=color.red))
-
-
-def draw_stupid_observations():
-    satellites = []
-    satellites.append(sphere(pos=vector(15_016.4745 * 1000, -4_873.2712 * 1000, 21_083.9388 * 1000), radius=(23_169.383 * 1000), color=color.red, opacity=0.2,))
-    satellites.append(sphere(pos=vector(16_382.6999 * 1000, 16_159.3121 * 1000, 13_976.1087 * 1000), radius=(22_080.297 * 1000), color=color.red, opacity=0.2,))
-    satellites.append(sphere(pos=vector(-18_701.7736 * 1000, -5_793.7280 * 1000, 17_639.0443 * 1000), radius=(24_710.395 * 1000), color=color.red, opacity=0.2,))
-    satellites.append(sphere(pos=vector(-7_896.5183 * 1000, 24_908.8834 * 1000, -1_077.6882 * 1000), radius=(23_697.539 * 1000), color=color.red, opacity=0.2,))
-    satellites.append(sphere(pos=vector(-17_458.6142 * 1000, 5_236.3465 * 1000, 19_630.4816 * 1000), radius=(23_056.675 * 1000), color=color.red, opacity=0.2,))
 
 def draw_light():
     scene.ambient = color.gray(0.7)
@@ -119,12 +91,24 @@ def draw_vectors():
                  color=color.yellow)
 
 
-if __name__ == "__main__":
-    draw_light()
-    draw_ellipsoid()
-    draw_coordinate_system()
-    draw_vectors()
-    draw_stupid_observations()
-    # Цикл, чтобы в консоль не лезли ошибки
-    while True:
-        pass
+orbit = ellipsoid(pos=vector(0, 0, 0),
+                  length=10000, height=0, width=10000)
+
+
+# if __name__ == "__main__":
+#     draw_light()
+#     draw_earth()
+#     draw_coordinate_system()
+#     draw_vectors()
+#     # Цикл, чтобы в консоль не лезли ошибки
+a = 0
+e = 0
+i = 0
+Omega = 0
+omega = 0
+theta = 0
+
+sl_a = slider(min=0.3, max=3, value=a)
+
+while True:
+    pass

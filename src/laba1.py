@@ -3,25 +3,24 @@
 # Усольцев Артём, ПГ-31, 2023 год
 # Вариант 36
 ########################################################################################################################
-
-from math import sin, cos, sqrt, radians, degrees, atan
+from math import sin, cos, sqrt, radians, degrees, atan, atan2
 import numpy as np
 from ellipsoids import wgs84, krasovsky
-from dms import dms2rad, rad2dms
-np.set_printoptions(suppress=True, precision=10)
+from rad_dms_hms import dms2rad, rad2dms
+np.set_printoptions(suppress=True, precision=3)
 
 # Параметры ориентировки эллипсоида Красовского относительно ПЗ-90
 # Координаты мгновенного полюса
-x_p = 0.25 / 3600
-y_p = -0.315 / 3600
+x_p = radians(0.25 / 3600)
+y_p = radians(-0.315 / 3600)
 # Вектор переноса начал T (meters)
 T_X = 25.0
-T_Y = -130.94
-T_Z = -81.76
+T_Y = -141
+T_Z = -90
 T_XYZ = np.array([[T_X], [T_Y], [T_Z]])
 # Вектор малого вращения w
 w_X = radians(0.000 / 3600)
-w_Y = radians(0.035 / 3600)
+w_Y = radians(0.350 / 3600)
 w_Z = radians(0.660 / 3600)
 w_XYZ = np.array([[w_X], [w_Y], [w_Z]])
 ########################################################################################################################
@@ -34,11 +33,10 @@ H_wgs84 = 841_412
 BLH_wgs84 = np.array([[B_wgs84], [L_wgs84], [H_wgs84]])
 # Сферические топоцентрические координаты ИСЗ в истинной небесной системе
 rho = 842_105
-alpha = dms2rad(13, 17, 53.14)
+alpha = 13 + 17 / 60 + 53.14 / 3600
 delta = dms2rad(43, 53, 50.13)
 # Момент наблюдения по гринвичскому звёздному времени
 S = 12 + 8 / 60 + 49.30 / 3600  # in hours
-
 ########################################################################################################################
 ##############################################                 #########################################################
 ##############################################     РЕШЕНИЕ     #########################################################
@@ -57,14 +55,13 @@ r = XYZ_wgs84
 # 2. Вычисление топоцентрических прямоугольных мгновенных земных координат по сферическим
 delta_hatch = delta
 t_hatch = radians(
-    degrees(alpha) - S * 15
+    (alpha - S) * 15
 )
 
 X_hatch_g = rho * cos(delta_hatch) * cos(t_hatch)
 Y_hatch_g = rho * cos(delta_hatch) * sin(t_hatch)
 Z_hatch_g = rho * sin(delta_hatch)
 XYZ_hatch_G = np.array([[X_hatch_g], [Y_hatch_g], [Z_hatch_g]])
-r_hatch = XYZ_hatch_G
 
 # Pol(t)
 Pol_t = np.array([[1, 0, x_p],
@@ -73,10 +70,10 @@ Pol_t = np.array([[1, 0, x_p],
 
 # 3. Перевод мгновенных земных топоцентрических координат спутника в средние земные координаты
 XYZ_hatch = np.matmul(Pol_t, XYZ_hatch_G)
+r_hatch = XYZ_hatch
 
-# 4. Вычисление прямоугольных координат пункта (средних земных геоцентрических) в системе WGS-84
-#    через основное уравнение космической геодезии
-R_WGS = np.subtract(r, r_hatch)
+R_WGS = np.subtract(r, r_hatch)  # 4. Вычисление прямоугольных координат пункта (средних земных геоцентрических) в
+# системе WGS-84 через основное уравнение космической геодезии
 
 # 5. Переход из системы эллипсоида ПЗ-90 в систему СК-95
 mu = 0  # масштабный коэффициент
@@ -84,8 +81,8 @@ fucking = np.array([[mu, w_Z, w_Y * (-1)],
                     [(-1) * w_Z, mu, w_X],
                     [w_Y, w_X * (-1), mu]])
 
-part1 = np.add(XYZ_wgs84, T_XYZ)
-part2 = np.matmul(fucking, XYZ_wgs84)
+part1 = np.add(R_WGS, T_XYZ)
+part2 = np.matmul(fucking, R_WGS)
 
 XYZ_sk95 = np.add(part1, part2)
 X_sk95 = XYZ_sk95.item(0)
@@ -96,7 +93,6 @@ Z_sk95 = XYZ_sk95.item(2)
 L_sk95 = atan(Y_sk95 / X_sk95)
 r = sqrt(X_sk95 ** 2 + Y_sk95 ** 2)
 # вонючий итеративный процесс ##########################################################################################
-epsilon_degrees = 0.1 / 360 / 60 / 60 / 100  # почему
 # начальная инициализация
 N_sk95 = krasovsky.N(0)
 B_sk95 = atan((Z_sk95 + N_sk95 * krasovsky.e2 * sin(0)) / r)
@@ -105,13 +101,10 @@ last_val = B_sk95
 for i in range(10):
     N_sk95 = krasovsky.N(B_sk95)
     B_sk95 = atan((Z_sk95 + N_sk95 * krasovsky.e2 * sin(B_sk95)) / r)
-    if abs(B_sk95 - last_val) < epsilon_degrees:
-        break
+
 ########################################################################################################################
 H_sk95 = (Z_sk95 / sin(B_sk95)) - krasovsky.N(B_sk95) * (1 - krasovsky.e2)
 BLH_sk95 = np.array([[degrees(B_sk95)], [degrees(L_sk95)], [H_sk95]])
 
 
-print(rad2dms(B_sk95))
-print(rad2dms(L_sk95))
-print(round(H_sk95))
+print(H_sk95)
